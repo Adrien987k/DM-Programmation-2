@@ -1,0 +1,112 @@
+
+
+\documentclass[a4paper, titlepage]{livret}
+
+\usepackage[latin1]{inputenc} % accents
+\usepackage[T1]{fontenc}      % caractères français
+\usepackage{geometry}         % marges
+\usepackage[francais]{babel}  % langue
+\usepackage{graphicx}         % images
+\usepackage{verbatim}         % texte préformaté
+\usepackage{bussproofs}       % proofs
+\usepackage{minted}         % source code
+
+\title{DM de programmation 2}
+\author{Adrien Bardes}
+\date{30 mars 2018}
+
+\pagestyle{headings}          % affiche un rappel discret (en haut à gauche)
+                              % de la partie dans laquel on se situe
+
+
+\begin{document}
+
+\section{La spécification de Mini-Ml}
+
+\paragraph{Question 1.}
+
+\begin{mathpar}
+
+\begin{prooftree}
+\def\fCenter{ \vdash\ }
+\Axiom$\gamma \fCenter n : int$
+\UnaryInf$\gamma \fCenter succ n : int$
+\end{prooftree}
+
+\begin{prooftree}
+\def\fCenter{ \vdash\ }
+\Axiom$\gamma \fCenter n : int$
+\UnaryInf$\gamma \fCenter pred n : int$
+\end{prooftree}
+
+\end{mathpar}
+
+\paragraph{Question 2.}
+
+\begin{minted}{ocaml}
+
+let plus_body = fun n -> fun m -> 
+  let n = fst c in
+  let m = snd c in
+  if n = 0 then n2 else
+  if m = 0 then n1 else
+  plus (pred n, succ m)
+
+let rec plus = plus_body in plus
+
+
+let time_body = fun n -> fun m ->
+  if n = 0 then 0 else
+  if m = 0 then 0 else
+  time (plus(n, m), pred m)
+
+let rec time = time_body in time
+
+\end{minted}
+
+\paragraph{Question 3.}
+
+\begin{minted}{ocaml}
+
+let rec f = fun x ->
+  if x = 0 then 1 else
+  time (x, f (x - 1))
+
+\end{minted}
+
+%TODO arbre de dérivation
+
+\paragraph{Question 4.}
+
+\begin{minted}{ocaml}
+
+let x = fst ((fun n -> fun m -> (n, m)) 2 3) in x
+
+\end{minted}
+
+\paragraph{Question 5.}
+
+Le typage des expression assure l'absence de plantage du à un mauvais typage
+lors de l'exécution d'un programme
+
+\paragraph{Question 6.}
+
+\begin{itemize}
+
+\item float
+\item n-uplet
+\item bool pour true et false
+\item ...
+
+\end{itemize}
+
+\paragraph{Question 7.}
+
+
+
+
+\section{Implémentation de Mini-ML}
+
+
+
+\end{document}
