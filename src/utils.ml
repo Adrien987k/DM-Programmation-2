@@ -21,9 +21,9 @@ let set_debug_mode i =
   dlevel := i
 
 let debug i fmt =
-    if !dlevel >= i
-    then kfprintf (fun _ -> pp_print_newline err_formatter ()) err_formatter fmt
-    else ifprintf err_formatter fmt
+  if !dlevel >= i
+  then kfprintf (fun _ -> pp_print_newline err_formatter ()) err_formatter fmt
+  else ifprintf err_formatter fmt
 
 let color = ref true
 

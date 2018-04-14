@@ -1,45 +1,38 @@
+\documentclass{article}
 
-
-\documentclass[a4paper, titlepage]{livret}
-
-\usepackage[latin1]{inputenc} % accents
+\usepackage[utf8x]{inputenc} % accents
 \usepackage[T1]{fontenc}      % caractères français
 \usepackage{geometry}         % marges
-\usepackage[francais]{babel}  % langue
+\usepackage[french]{babel}  % langue
 \usepackage{graphicx}         % images
 \usepackage{verbatim}         % texte préformaté
 \usepackage{bussproofs}       % proofs
-\usepackage{minted}         % source code
+\usepackage[cache=false]{minted}         % source code
 
 \title{DM de programmation 2}
 \author{Adrien Bardes}
 \date{30 mars 2018}
 
-\pagestyle{headings}          % affiche un rappel discret (en haut à gauche)
-                              % de la partie dans laquel on se situe
-
-
 \begin{document}
+
+\maketitle
 
 \section{La spécification de Mini-Ml}
 
 \paragraph{Question 1.}
 
-\begin{mathpar}
-
 \begin{prooftree}
 \def\fCenter{ \vdash\ }
-\Axiom$\gamma \fCenter n : int$
-\UnaryInf$\gamma \fCenter succ n : int$
+\Axiom$\Gamma \fCenter n : int$
+\UnaryInf$\Gamma \fCenter succ n : int$
 \end{prooftree}
 
 \begin{prooftree}
 \def\fCenter{ \vdash\ }
-\Axiom$\gamma \fCenter n : int$
-\UnaryInf$\gamma \fCenter pred n : int$
+\Axiom$\Gamma \fCenter n : int$
+\UnaryInf$\Gamma \fCenter pred n : int$
 \end{prooftree}
 
-\end{mathpar}
 
 \paragraph{Question 2.}
 
@@ -91,22 +84,103 @@ lors de l'exécution d'un programme
 
 \paragraph{Question 6.}
 
-\begin{itemize}
-
-\item float
-\item n-uplet
-\item bool pour true et false
-\item ...
-
-\end{itemize}
+En Ocaml, toutes les expressions sont des valeurs. Par exemple dans le code suivant, f est une valeur :
+\begin{minted}{ocaml}
+let rec f x = if x = 0 then 0 else f (x -1)
+\end{minted}
 
 \paragraph{Question 7.}
 
+Sans les opérateurs de comparaison $\le$ et $\ge$ il n'est pas possible d'implémenter $pred$ en Mini-Ml.
 
+\paragraph{Question 8.}
+
+
+
+\paragraph{Question 9.}
+
+L'opérateur $\not\equiv$ effectue un test sur les types des deux élements comparés. On a $a \not\equiv b$ si et seulement si $a$ et $b$ sont de type différents ou $a$ et $b$ sont du même type mais pas la même valeur.
 
 
 \section{Implémentation de Mini-ML}
 
+\paragraph{Question 10.}
 
+%Let of var * ty option * expr loc
+%let x^A = u
+%let rec x^A = u
+%LetRec of var * ty option * expr loc
+
+\def\fCenter{ \mbox{ $\vdash$\ }}
+
+\begin{figure}[!t]
+\centering
+\caption{La commande Let}
+\label{Tux}
+\end{figure}
+
+\begin{prooftree}
+\AxiomC{$\Gamma \vdash t : A$}
+\UnaryInfC{$\Gamma \fCenter \textbf{let}\ x^A = t$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$\Gamma \vdash \textbf{let}\ x = \textbf{fix}\ (\lambda x^A .t)$}
+\UnaryInfC{$\Gamma \vdash \textbf{let\ rec}\ x^A = t$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$t \hookrightarrow t'$}
+\UnaryInfC{$\textbf{let}\ x = t\ \hookrightarrow \textbf{let}\ x = t'$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$$}
+\UnaryInfC{$\textbf{let\ rec}\ x^A = t \hookrightarrow \textbf{fix}\ (\lambda x^A .t)$}
+\end{prooftree}
+
+\paragraph{Question 11.}
+
+Un programme Mini-ML est une suite de commandes.
+
+\paragraph{Question 12.}
+
+$\Gamma, let x = t$ ==> $\Gamma, let x = t in x$
+$\Gamma, let rec x = t$ ==> $let rec x = t in x$
+
+\paragraph{Question 13.}
+
+\begin{prooftree}
+\AxiomC{$\Gamma, x : \textbf{bool}$}
+\AxiomC{$\Gamma, y : \textbf{bool}$}
+\BinaryInfC{$\Gamma, x\ \&\& \ y : \textbf{bool}$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$x \hookrightarrow \textbf{true}$}
+\AxiomC{$y \hookrightarrow \textbf{true}$}
+\BinaryInfC{$x\ \&\& \ y \hookrightarrow \textbf{true}$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$x \hookrightarrow \textbf{false}$}
+\UnaryInfC{$x\ \&\& \ y \hookrightarrow \textbf{false}$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$y \hookrightarrow \textbf{false}$}
+\UnaryInfC{$x\ \&\& \ y \hookrightarrow \textbf{false}$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$\Gamma, x : \textbf{nat}$}
+\AxiomC{$\Gamma, y : \textbf{nat}$}
+\BinaryInfC{$\Gamma, x + y : \textbf{nat}$}
+\end{prooftree}
+
+\begin{prooftree}
+\AxiomC{$\textbf{plus}\ x \ y$}
+\UnaryInfC{$x + y$}
+\end{prooftree}
 
 \end{document}
