@@ -3,7 +3,6 @@ open Utils
 
 type ('a, 'b) env = ('a * 'b) list
 
-(* TODO do better *)
 type typing_error = string
 
 exception Typing_error of typing_error
@@ -15,20 +14,25 @@ let bind env k v =
   else
     (k, v) :: env
 
-let value env k = List.assoc k env
+let value env k = 
+  try
+    List.assoc k env
+  with Not_found -> raise (Typing_error ("Unbound value " ^ k))
 
 let rec type_equal ty1 ty2 =
   match ty1, ty2 with
   | TyInt, TyInt
-  | TyBool, TyBool
-  | TyVar _, TyVar _ -> true
+  | TyBool, TyBool -> true
+  | TyVar v1, TyVar v2 -> true (* (String.compare v1 v2) = 0 *)
   | TyArrow(tya1, tya2), TyArrow(tyb1, tyb2)
   | TyTimes(tya1, tya2), TyTimes(tyb1, tyb2) ->
     (type_equal tya1 tyb1) && (type_equal tya2 tyb2)
   | _ -> false
 
 
-let print_error fmt err = failwith "todo print error"
+let print_error fmt (err : typing_error) =
+  Format.fprintf fmt "%s" err;
+  ()
 
 let rec typing_ast (ast : Ast.t) : (Ast.t, typing_error) Utils.result =
   let ast = List.map
@@ -60,19 +64,29 @@ and typing_cmd env cmd =
 and type_of_expr env expr =
   match expr with
   | Var var -> (env, value env var)
-  | App ((_, expr1), (_, expr2)) ->
+  | App ((_, expr1), (_, expr2)) as app ->
     let env1, ty1 = type_of_expr env expr1 in
     let env2, ty2 = type_of_expr env expr2 in
     begin
       match ty1 with
       | TyArrow(tya1, tya2) ->
-        if tya1 = ty2 then (env, tya2)
-        else raise (Typing_error "")
-      | _ -> raise (Typing_error "")
+        if type_equal tya1 ty2 then (env, tya2)
+        else raise (Typing_error ("Application t1 t2"))
+      | TyVar _ ->
+        begin
+          match expr1 with
+          | Var var ->
+            let new_env = bind env var (TyArrow ((TyVar "'b"), (TyVar "'c"))) in
+            type_of_expr new_env app
+          | _ -> failwith "Should not happend"
+        end
+      | _ -> raise (Typing_error "Application")
     end
-  | Lam (var,  ty_opt,  (_, expr)) ->
-    (* let env1, ty1 = type_of_expr env expr in *)
-    raise (Typing_error "TODO")
+  | Lam (var,  _,  (loc, expr)) ->
+    let new_env = bind env var (TyVar "'a") in
+    let new_env, tyB = type_of_expr new_env expr in
+    let tyA = value new_env var in
+    (new_env, TyArrow(tyA, tyB))
   | Pair ((_, expr1), (_, expr2)) ->
     let _, ty1 = type_of_expr env expr1 in
     let _, ty2 = type_of_expr env expr2 in
@@ -86,38 +100,29 @@ and type_of_expr env expr =
       match type_of_expr env expr with
       | (_, TyArrow(tya1, tya2)) ->
         if tya1 = tya2 then (env, tya1)
-        else raise (Typing_error "")
-      | _ -> raise (Typing_error "")
+        else raise (Typing_error "Fixpoint has type A->B with A != B")
+      | _ -> raise (Typing_error "Fixpoint type should be of the form A->A")
     end
   | Int i -> env, TyInt
   | Bool b -> env, TyBool
-  | Proj proj -> type_of_proj env proj
+  | Proj(Left ((_, expr))) -> type_of_proj env expr true
+  | Proj(Right ((_, expr))) -> type_of_proj env expr false
   | Ite ((_, expr1), (_, expr2), (_, expr3)) ->
     begin
       match type_of_expr env expr1, type_of_expr env expr2, type_of_expr env expr3 with 
       | ((_, TyBool), (_, ty1), (_, ty2)) ->
         if ty1 = ty2 then (env, ty1)
-        else raise (Typing_error "")
-      | _ -> raise (Typing_error "")
+        else raise (Typing_error "In 'if b then u else v', type(u) sould be equal to type(v)")
+      | _ -> raise (Typing_error "In 'if b then u else v' type(b) should be bool")
     end
   | Binop (binop, (_, expr1), (_, expr2))  -> 
     type_of_binop env binop expr1 expr2
 
-(* TODO FACTORISER *)
-and type_of_proj env (proj : Ast.expr Ast.loc Ast.either) =
-  match proj with
-  | Left ((_, expr)) ->
-    begin
-      match type_of_expr env expr with
-      | (_, TyTimes(ty1, ty2)) -> (env, ty1)
-      | _ -> raise (Typing_error "")
-    end
-  | Right ((_, expr)) ->
-    begin
-      match type_of_expr env expr with
-      | (_, TyTimes(ty1, ty2)) -> (env, ty2) 
-      | _ -> raise (Typing_error "")
-    end
+and type_of_proj env expr is_left =
+  match type_of_expr env expr with
+  | (_, TyTimes(ty1, ty2)) ->
+    if is_left then (env, ty1) else (env, ty2)
+  | _ -> raise (Typing_error "proj")
 
 and type_of_binop env binop expr1 expr2 =
   let op =
@@ -140,10 +145,10 @@ and type_of_binop env binop expr1 expr2 =
         | TyInt, TyInt ->
           if List.mem op ['+'; '-'; '*'; '/'; '>']
           then (env, TyInt)
-          else raise (Typing_error "")
+          else raise (Typing_error "Int operation should be between two int")
         | TyBool, TyBool ->
           if List.mem op ['&'; '|']
           then (env, TyInt)
-          else raise (Typing_error "")
-        | _ -> raise (Typing_error "")
+          else raise (Typing_error "Operation between two bool should be && or ||")
+        | _ -> raise (Typing_error "Bool operation should be between two bool")
       end

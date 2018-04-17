@@ -51,19 +51,19 @@ let run_on_file printing_mode file =
 let _ =
   let printing_mode = ref false in
   let options = Arg.align
-        [ ("-d"
+      [ ("-d"
         , Arg.Int set_debug_mode
         , "N sets the debuging level to N. Default is -1" )
-        ; ("-p"
+      ; ("-p"
         , Arg.Set printing_mode
         , " Print the output on standard input")
-        ; ("--no-eval"
+      ; ("--no-eval"
         , Arg.Set no_eval
         , " Does not evaluate the program" )
-        ; ("--no-typing"
+      ; ("--no-typing"
         , Arg.Set no_typing
         , " Remove the typing" )
-        ; ("--closure"
+      ; ("--closure"
         , Arg.Set apply_closure
         , " Apply the closure conversion before evaluating the program" ) ;
       ]
