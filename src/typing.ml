@@ -7,6 +7,25 @@ type typing_error = string
 
 exception Typing_error of typing_error
 
+let var_type_counter = ref (-1)
+
+let var_types = 
+  [|'a'; 'b'; 'c'; 'd'; 'e'; 'f'; 'g'; 'h'; 'i'; 'j'; 'k'; 'l'; 'm';
+    'n'; 'o'; 'p'; 'q'; 'r'; 's'; 't'; 'u'; 'v'; 'w'; 'x'; 'y'; 'z'|]
+
+(* TODO z -> aa *)
+let next_var_type () =
+  var_type_counter := (!var_type_counter + 1);
+  (* Printf.printf "GET %s\n" (string_of_int (!var_type_counter)); *)
+  try
+    let c = Array.get var_types (!var_type_counter) in
+    "'" ^ (String.make 1 c)
+  with Invalid_argument _ ->
+    var_type_counter := 0;
+    let c = Array.get var_types (!var_type_counter) in
+    "'" ^ (String.make 1 c)
+
+
 let bind env k v =
   if List.mem_assoc k env then
     let env = List.remove_assoc k env in
@@ -14,7 +33,7 @@ let bind env k v =
   else
     (k, v) :: env
 
-let value env k = 
+let value env k =
   try
     List.assoc k env
   with Not_found -> raise (Typing_error ("Unbound value " ^ k))
@@ -85,8 +104,6 @@ let rec typing_ast (ast : Ast.t) : (Ast.t, typing_error) Utils.result =
         (fun env_ast cmd ->
            let env, ast = env_ast in
            let env, typed_cmd = (typing_cmd env cmd) in
-           Printf.printf "NEXT\n";
-           print_env env;
            (env, typed_cmd :: ast)
         )
         (env, new_ast) ast
@@ -100,11 +117,12 @@ and typing_cmd env cmd =
     let env, ty = type_of_expr env expr in
     (bind env var ty, (loc, Let (var, Some ty, (loc, expr))))
   | LetRec (var, ty_opt, (loc, expr)) ->
-    let env, ty = type_of_expr (bind env var (TyVar("'a"))) expr in
+    let env, ty = type_of_expr (bind env var (TyVar(next_var_type()))) expr in
     let env = bind env var ty in
     (env, (loc, LetRec (var, Some ty, (loc, expr))))
 
 and type_of_expr env expr =
+  (* print_env env; *)
   match expr with
   | Var var -> (env, value env var)
   | App ((_, expr1), (_, expr2)) as app ->
@@ -113,7 +131,8 @@ and type_of_expr env expr =
     begin
       match ty1 with
       | TyArrow(tya1, tya2) ->
-        let env, equal = unify_and_type_equal env tya1 ty2 in 
+        let env, equal = unify_and_type_equal env tya1 ty2 in
+        Printf.printf "DEB %s\n" (string_of_type tya2);
         if equal then (env, tya2)
         else raise (Typing_error
                       ("Application " ^ (string_of_type tya1) ^ " != " ^ (string_of_type ty2)))
@@ -121,14 +140,20 @@ and type_of_expr env expr =
         begin
           match expr1 with
           | Var var ->
-            let env = bind env var (TyArrow ((TyVar "'b"), (TyVar "'c"))) in
+            let env = bind env var (TyArrow ((TyVar (next_var_type())), (TyVar (next_var_type())))) in
             type_of_expr env app
           | _ -> failwith "Should not happend"
         end
-      | _ -> raise (Typing_error "Application")
+      | _ -> raise (Typing_error ("Application " ^ (string_of_type ty1)))
     end
-  | Lam (var,  _,  (loc, expr)) ->
-    let env = bind env var (TyVar "'x") in
+  | Lam (var,  ty_opt,  (loc, expr)) ->
+    let env =
+      begin
+        match ty_opt with
+        | Some(ty) -> bind env var ty
+        | None -> bind env var (TyVar (next_var_type()))
+      end
+    in
     let env, tyB = type_of_expr env expr in
     let tyA = value env var in
     (env, TyArrow(tyA, tyB))
@@ -158,9 +183,8 @@ and type_of_expr env expr =
     let (env, ty1) = type_of_expr env expr1 in
     let (env, ty2) = type_of_expr env expr2 in
     let (env, ty3) = type_of_expr env expr3 in
-    print_env env;
     begin
-      match ty1, ty2, ty3 with 
+      match ty1, ty2, ty3 with
       | TyBool, _, _ ->
         let env, equal = unify_and_type_equal env ty2 ty3 in
         let (env, ty2) = type_of_expr env expr2 in
@@ -204,8 +228,7 @@ and type_of_binop env binop expr1 expr2 =
   let env, equal = unify_and_type_equal env ty1 ty2 in
   let env, ty1 = type_of_expr env expr1 in
   let env, ty2 = type_of_expr env expr2 in
-  print_env env;
-  Printf.printf "DEBUG AFT %s %s\n\n" (string_of_type ty1) (string_of_type ty2);
+  (* Printf.printf "DEBUG AFT %s %s\n\n" (string_of_type ty1) (string_of_type ty2); *)
   if op = '=' && equal then env, TyBool
   else if op = '=' then raise (Typing_error "Comparaison between two diffrents types")
   else
