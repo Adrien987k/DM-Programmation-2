@@ -43,6 +43,7 @@ let run_on_file printing_mode file =
   debug 1 "Processing file '%s' ..." file;
   let ast = read input in
   let ast' = process_ast ast in
+  Printf.printf "\n";
   if printing_mode then
     Printer.print_ast Format.std_formatter ast';
   close_in input

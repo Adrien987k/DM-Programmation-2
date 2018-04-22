@@ -15,14 +15,18 @@ let rec eval_ast (cmds : Ast.t) : (Ast.var * Ast.expr) list =
   in
   let env = [] in
   let env = List.fold_left
-      (fun env cmd -> eval_cmd env cmd)
+      (fun env cmd ->
+         let env = eval_cmd env cmd in
+         env
+      )
       env cmds
   in
-  env
+  List.rev env
 
 and eval_cmd env cmd =
   match cmd with
-  | Let (var, _, (_, expr)) -> []
+  | Let (var, _, (_, expr)) ->
+    (var, eval_expr env expr) :: env
   | LetRec (var, _, (_, expr)) -> []
 
 and subst env t x u =
