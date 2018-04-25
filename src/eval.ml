@@ -27,7 +27,9 @@ and eval_cmd env cmd =
   match cmd with
   | Let (var, _, (_, expr)) ->
     (var, eval_expr env expr) :: env
-  | LetRec (var, _, (_, expr)) -> []
+  | LetRec (var, ty, (loc, expr)) ->
+    (var, eval_expr env expr) :: env
+(* eval_cmd env (Let(var, ty, (loc, Fix((loc, Lam(var, ty, (loc, expr))))))) *)
 
 and subst env t x u =
   match t with
@@ -54,6 +56,7 @@ and subst env t x u =
          (loc3, subst env expr3 x u))
   | Binop (op, (loc1, expr1), (loc2, expr2)) ->
     Binop (op, (loc1, subst env expr1 x u), (loc2, subst env expr2 x u))
+  | Unit -> Unit
 
 
 and eval_expr env expr =
@@ -68,12 +71,13 @@ and eval_expr env expr =
         else
           let expr2' = eval_expr env expr2 in
           eval_expr env (App((loc1, expr1), (loc2, expr2')))
-      | _ -> 
-        let expr1' = eval_expr env expr in
+      | _ ->
+        let expr1' = eval_expr env expr1 in
         eval_expr env (App((loc1, expr1'), (loc2, expr2)))
     end
-  | Lam (_, _, _) as lam -> lam
-  | Pair (_, _) as pair -> pair
+  | Lam(var, ty, (loc1, expr1)) as lam -> lam
+  | Pair((loc1, expr1), (loc2, expr2)) ->
+    Pair((loc1, eval_expr env expr1), (loc2, eval_expr env expr2))
   | LetIn (var, (loc1, expr1), (loc2, expr2)) ->
     if is_value expr1 then
       subst env expr2 var expr1
@@ -81,10 +85,11 @@ and eval_expr env expr =
       let expr1' = eval_expr env expr1 in
       eval_expr env (LetIn(var, (loc1, expr1'), (loc2, expr2)))
   | Fix (loc, expr) ->
+    Printf.printf "EVAL FIX\n";
     begin
       match expr with
       | Lam(var, ty, (loc1, expr1)) as lam ->
-        subst env expr1 var (Fix((loc, lam)))
+        eval_expr env (subst env expr1 var (Fix((loc, lam))))
       | _ ->
         let expr' = eval_expr env expr in
         eval_expr env (Fix((loc, expr')))
@@ -94,7 +99,7 @@ and eval_expr env expr =
   | Proj (Left(_, expr)) -> eval_proj env expr true
   | Proj (Right(_, expr)) -> eval_proj env expr false 
   | Ite ((loc1, expr1), (loc2, expr2), (loc3, expr3)) ->
-    begin  
+    begin
       match expr1 with
       | Bool b -> if b then eval_expr env expr2 else eval_expr env expr3
       | _ ->
@@ -103,11 +108,12 @@ and eval_expr env expr =
     end
   | Binop (op, (_, expr1), (_, expr2)) ->
     eval_binop env op expr1 expr2
+  | Unit -> Unit
 
 and eval_proj env expr is_left =
   match expr with
   | Pair((_, expr1), (_, expr2)) ->
-    if (is_left) 
+    if (is_left)
     then eval_expr env expr1
     else eval_expr env expr2
   | _ ->
@@ -120,7 +126,7 @@ and eval_binop env op expr1 expr2 =
   match op with
   | Plus -> eval_int_op env (+) expr1 expr2
   | Minus -> eval_int_op env (-) expr1 expr2
-  | Times -> eval_int_op env ( *) expr1 expr2
+  | Times -> eval_int_op env ( * ) expr1 expr2
   | Div -> eval_int_op env (/) expr1 expr2
   | And -> eval_bool_op env (&&) expr1 expr2
   | Or -> eval_bool_op env (||) expr1 expr2
@@ -131,7 +137,7 @@ and eval_binop env op expr1 expr2 =
   | Gt ->
     match eval_expr env expr1, eval_expr env expr2 with
     | Int i1, Int i2 -> Bool(i1 <= i2)
-    | _ -> failwith "SHould not happend"
+    | _ -> failwith "Should not happend"
 
 
 and value_equal env expr1 expr2 =

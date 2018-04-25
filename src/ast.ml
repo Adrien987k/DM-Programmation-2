@@ -12,6 +12,7 @@ type ty =
   | TyVar of var_ty
   | TyArrow of ty * ty
   | TyTimes of ty * ty
+  | TyUnit
 
 type 'a either = Left of 'a | Right of 'a
 
@@ -27,6 +28,7 @@ type expr =
   | Proj  of expr loc either
   | Ite   of expr loc * expr loc * expr loc
   | Binop of binop * expr loc * expr loc
+  | Unit
 
 
 type cmd =

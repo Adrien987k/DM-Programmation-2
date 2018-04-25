@@ -1,5 +1,7 @@
 (* Example of well-formed programs *)
-(* 
+
+let x = ()
+
 let rec f x =
   if x = 0 then
     1
@@ -7,7 +9,8 @@ let rec f x =
     x * f (x - 1)
 
 let _ = f 1
-*)
+
+(*
 let g x y = (y,x)
 
 let h (x:int) y = x
@@ -28,11 +31,12 @@ let foo =
   let z = (let y = 3 in y)
   in
   (x,z)
-(*)
-  let foo' = (2+2,4)
 
-  let h x y = x
+let foo' = (2+2,4)
 
-  let test y = h y
+let h x y = x
 
-  let _ = (fun y -> (fun x -> fun y -> x) y) 2 3 *)
+let test y = h y
+
+let _ = (fun y -> (fun x -> fun y -> x) y) 2 3
+*)

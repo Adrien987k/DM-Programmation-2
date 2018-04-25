@@ -26,14 +26,15 @@ rule token = parse
   | "snd"     { SND }
   | "true"    { TRUE (get_loc lexbuf) }
   | "false"   { FALSE (get_loc lexbuf) }
+  | "unit"    { UNIT (get_loc lexbuf) }
   | "&&"      { AND }
   | "||"      { OR }
   | '\n'      { new_line lexbuf ; token lexbuf }
   | "(*"      { comment lexbuf }
   | ','       { COMMA }
   | ':'       { COLON }
-  | '('       { LEFTPAR }
-  | ')'       { RIGHTPAR }
+  | '('       { LEFTPAR (get_loc lexbuf) }
+  | ')'       { RIGHTPAR (get_loc lexbuf) }
   | '>'       { GT }
   | "->"      { ARROW }
   | "="       { EQUAL }

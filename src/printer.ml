@@ -32,8 +32,9 @@ let rec print_ty fmt = function
   | TyVar x -> Format.fprintf fmt "%a" print_var_ty x
   | TyArrow(tyl,tyr) -> Format.fprintf fmt "%a -> %a" print_ty_wp tyl print_ty tyr
   | TyTimes(tyl,tyr) -> Format.fprintf fmt "%a * %a" print_ty_wp tyl print_ty tyr
+  | TyUnit -> Format.fprintf fmt "unit"
 and print_ty_wp fmt = function
-  | TyInt | TyBool | TyVar _ as t -> print_ty fmt t
+  | TyInt | TyBool | TyVar _ | TyUnit as t -> print_ty fmt t
   | _ as ty -> Format.fprintf fmt "(%a)" print_ty ty
 
 
@@ -63,7 +64,7 @@ let rec print_expr fmt expr =
   | LetIn(var,(_,Fix(_,Lam(var',mty,e))),e') when var = var'
     -> Format.fprintf fmt "let rec %a = %a in %a" print_param (var',mty)
          print_lc_expr e print_lc_expr e'
-  | Fix _                     -> assert false
+  | Fix (_, e)                     -> Format.fprintf fmt "fix(%a)" print_expr e (* assert false *)
   | LetIn(var,e,e')           -> Format.fprintf fmt "let %a = %a in %a" print_var var
                                    print_lc_expr e print_lc_expr e'
   | Proj(p)                   -> Format.fprintf fmt "%a" (print_either print_lc_expr) p
@@ -71,10 +72,10 @@ let rec print_expr fmt expr =
                                    (print_lc_expr) el (print_lc_expr) er
   | Binop(b,el,er)            -> Format.fprintf fmt "%a %a %a" (print_lc_expr_wp) el
                                    print_binop b (print_lc_expr) er
+  | Unit                      -> Format.fprintf fmt "()"
 and print_expr_wp fmt = function
-  | Var _ | Int _ | Bool _ as e -> print_expr fmt e
+  | Var _ | Int _ | Unit | Bool _  as e -> print_expr fmt e
   | _ as e -> Format.fprintf fmt "(%a)" print_expr e
-
 
 
 let print_cmd fmt = function

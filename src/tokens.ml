@@ -1,10 +1,10 @@
 
 type token =
   | TIMES
-  | RIGHTPAR
+  | RIGHTPAR of Utils.loc
   | PLUS
   | MINUS
-  | LEFTPAR
+  | LEFTPAR of Utils.loc
   | EQUAL
   | EOF
   | DIV
@@ -30,3 +30,4 @@ type token =
   | AND
   | OR
   | GT
+  | UNIT of Utils.loc

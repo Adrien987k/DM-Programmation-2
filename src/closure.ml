@@ -53,6 +53,7 @@ and closure_expr expr =
     Ite((loc1, closure_expr expr1), (loc2, closure_expr expr2), (loc3, closure_expr expr3))
   | Binop(op, (loc1, expr1), (loc2, expr2)) ->
     Binop(op, (loc1, closure_expr expr1), (loc2, closure_expr expr2))
+  | Unit -> Unit
 
 (* TODO Typing *)
 and closure_lam lam =
@@ -78,7 +79,8 @@ and closure_lam lam =
     | Proj(Right((loc1, expr1))) -> (free_vars expr1)
     | Ite((loc1, expr1), (loc2, expr2), (loc3, expr3)) ->
       (free_vars expr1) @ (free_vars expr2) @ (free_vars expr3)
-    | Binop(op, (loc1, expr1), (loc2, expr2)) -> (free_vars expr1) @ (free_vars expr2)  
+    | Binop(op, (loc1, expr1), (loc2, expr2)) -> (free_vars expr1) @ (free_vars expr2)
+    | Unit -> [] 
   in
   let rec make_pairs vars = 
     match vars with

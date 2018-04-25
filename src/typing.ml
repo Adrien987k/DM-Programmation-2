@@ -9,7 +9,7 @@ exception Typing_error of typing_error
 
 let var_type_counter = ref (-1)
 
-let var_types = 
+let var_types =
   [|'a'; 'b'; 'c'; 'd'; 'e'; 'f'; 'g'; 'h'; 'i'; 'j'; 'k'; 'l'; 'm';
     'n'; 'o'; 'p'; 'q'; 'r'; 's'; 't'; 'u'; 'v'; 'w'; 'x'; 'y'; 'z'|]
 
@@ -78,8 +78,9 @@ let rec string_of_type = function
   | TyVar x -> x
   | TyArrow(tyl, tyr) -> (string_of_ty_wp tyl) ^ " -> " ^ (string_of_type tyr)
   | TyTimes(tyl, tyr) -> (string_of_ty_wp tyl) ^ " * " ^ (string_of_type tyr)
+  | TyUnit -> "unit"
 and string_of_ty_wp = function
-  | TyInt | TyBool | TyVar _ as t -> string_of_type t
+  | TyInt | TyBool | TyVar _ | TyUnit as t -> string_of_type t
   | _ as ty -> "(" ^ (string_of_type ty) ^ ")"
 
 let print_env env =
@@ -132,7 +133,6 @@ and type_of_expr env expr =
       match ty1 with
       | TyArrow(tya1, tya2) ->
         let env, equal = unify_and_type_equal env tya1 ty2 in
-        Printf.printf "DEB %s\n" (string_of_type tya2);
         if equal then (env, tya2)
         else raise (Typing_error
                       ("Application " ^ (string_of_type tya1) ^ " != " ^ (string_of_type ty2)))
@@ -200,8 +200,9 @@ and type_of_expr env expr =
         else raise (Typing_error "In 'if b then u else v', type(u) sould be equal to type(v)")
       | _, _, _ -> raise (Typing_error ("In 'if b then u else v' type(b) = " ^ (string_of_type ty1)))
     end
-  | Binop (binop, (_, expr1), (_, expr2))  -> 
+  | Binop (binop, (_, expr1), (_, expr2))  ->
     type_of_binop env binop expr1 expr2
+  | Unit -> env, TyUnit
 
 and type_of_proj env expr is_left =
   match type_of_expr env expr with
@@ -223,12 +224,9 @@ and type_of_binop env binop expr1 expr2 =
   in
   let env, ty1 = type_of_expr env expr1 in
   let env, ty2 = type_of_expr env expr2 in
-  (* Printf.printf "DEBUG BEF %s %s\n" (string_of_type ty1) (string_of_type ty2);
-     print_env env; *)
   let env, equal = unify_and_type_equal env ty1 ty2 in
   let env, ty1 = type_of_expr env expr1 in
   let env, ty2 = type_of_expr env expr2 in
-  (* Printf.printf "DEBUG AFT %s %s\n\n" (string_of_type ty1) (string_of_type ty2); *)
   if op = '=' && equal then env, TyBool
   else if op = '=' then raise (Typing_error "Comparaison between two diffrents types")
   else

@@ -12,7 +12,7 @@
 %token EOF
 %token ARROW
 %token COMMA COLON
-%token LEFTPAR RIGHTPAR
+%token<Utils.loc> LEFTPAR RIGHTPAR
 %token EQUAL PLUS MINUS TIMES DIV AND OR
 %token LET REC IN FUN
 %token GT
@@ -23,6 +23,7 @@
 %token<string> TYID
 %token<Utils.loc*int> NUM
 %token<Utils.loc> TRUE FALSE
+%token<Utils.loc> UNIT
 
 %left EQUAL
 %left AND OR
@@ -77,11 +78,15 @@ typ:
 
 atomicexpr:
     | id=ID
-       { fst id, Var (snd id) }
+        { fst id, Var (snd id) }
     | LEFTPAR e=letexpr RIGHTPAR
-       { e }
+        { e }
     | LEFTPAR el=letexpr COMMA er=letexpr RIGHTPAR
-      { fst el, Pair(el,er) }
+        { fst el, Pair(el,er) }
+    | LEFTPAR RIGHTPAR
+        { $1, Unit }
+    | UNIT
+        { $1, Unit }
     | n=NUM
         { fst n, Int(snd n) }
     | TRUE
