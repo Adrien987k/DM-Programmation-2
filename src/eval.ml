@@ -9,6 +9,23 @@ let is_value expr =
   | Bool _ -> true
   | _ -> false
 
+let string_of_value value =
+  match value with
+  | Var var -> var
+  | Lam (var, ty, (_, expr)) -> "(fun " ^ var ^ " -> EXP)"
+  | Pair (_, _) -> "(A, B)"
+  | Int i -> (string_of_int i)
+  | Bool b -> (string_of_bool b)
+  | _ -> ""
+
+
+let print_env env =
+  Printf.printf "=== ENV ===\n";
+  List.iter (fun e ->
+      let var, value = e in
+      Printf.printf "%s : %s\n" var (string_of_value value)) env;
+  Printf.printf "===========\n"
+
 let rec eval_ast (cmds : Ast.t) : (Ast.var * Ast.expr) list =
   let cmds = List.map
       (fun cmd_l -> let _, cmd = cmd_l in cmd) cmds
@@ -24,6 +41,7 @@ let rec eval_ast (cmds : Ast.t) : (Ast.var * Ast.expr) list =
   List.rev env
 
 and eval_cmd env cmd =
+  (* print_env env; *)
   match cmd with
   | Let (var, _, (_, expr)) ->
     (var, eval_expr env expr) :: env
@@ -33,13 +51,13 @@ and eval_cmd env cmd =
 
 and subst env t x u =
   match t with
-  | Var var as v->
+  | Var var as v ->
     if (String.compare var x = 0) then u else v
   | App((loc1, expr1), (loc2, expr2)) ->
     App((loc1, subst env expr1 x u), (loc2, subst env expr2 x u))
   | Lam(var, ty, (loc, expr)) as lam ->
     if (String.compare var x = 0) then lam
-    else Lam(var, ty, (loc, subst env expr x u)) 
+    else Lam(var, ty, (loc, subst env expr x u))
   | Pair((loc1, expr1), (loc2, expr2)) ->
     Pair((loc1, subst env expr1 x u), (loc2, subst env expr2 x u))
   | LetIn (var, (loc1, expr1), (loc2, expr2)) as letIn ->
@@ -67,7 +85,7 @@ and eval_expr env expr =
       match expr1 with
       | Lam (var, _, (_, expr3)) ->
         if is_value expr2 then
-          subst env expr3 var expr2
+          eval_expr env (subst env expr3 var expr2)
         else
           let expr2' = eval_expr env expr2 in
           eval_expr env (App((loc1, expr1), (loc2, expr2')))
@@ -80,12 +98,11 @@ and eval_expr env expr =
     Pair((loc1, eval_expr env expr1), (loc2, eval_expr env expr2))
   | LetIn (var, (loc1, expr1), (loc2, expr2)) ->
     if is_value expr1 then
-      subst env expr2 var expr1
+      eval_expr env (subst env expr2 var expr1)
     else
       let expr1' = eval_expr env expr1 in
       eval_expr env (LetIn(var, (loc1, expr1'), (loc2, expr2)))
   | Fix (loc, expr) ->
-    Printf.printf "EVAL FIX\n";
     begin
       match expr with
       | Lam(var, ty, (loc1, expr1)) as lam ->

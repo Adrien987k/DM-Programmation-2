@@ -16,7 +16,6 @@ let var_types =
 (* TODO z -> aa *)
 let next_var_type () =
   var_type_counter := (!var_type_counter + 1);
-  (* Printf.printf "GET %s\n" (string_of_int (!var_type_counter)); *)
   try
     let c = Array.get var_types (!var_type_counter) in
     "'" ^ (String.make 1 c)
@@ -38,6 +37,25 @@ let value env k =
     List.assoc k env
   with Not_found -> raise (Typing_error ("Unbound value " ^ k))
 
+let rec string_of_type = function
+  | TyInt   -> "int"
+  | TyBool  -> "bool"
+  | TyVar x -> x
+  | TyArrow(tyl, tyr) -> (string_of_ty_wp tyl) ^ " -> " ^ (string_of_type tyr)
+  | TyTimes(tyl, tyr) -> (string_of_ty_wp tyl) ^ " * " ^ (string_of_type tyr)
+  | TyUnit -> "unit"
+and string_of_ty_wp = function
+  | TyInt | TyBool | TyVar _ | TyUnit as t -> string_of_type t
+  | _ as ty -> "(" ^ (string_of_type ty) ^ ")"
+
+
+let print_env env =
+  Printf.printf "=== ENV ===\n";
+  List.iter (fun e ->
+      let var, ty = e in
+      Printf.printf "%s : %s\n" var (string_of_type ty)) env;
+  Printf.printf "===========\n"
+
 let rec replace_type_var env x new_type =
   let rec replace_in_type ty x new_type =
     match ty with
@@ -49,14 +67,6 @@ let rec replace_type_var env x new_type =
   List.map (fun entry ->
       let var, ty = entry in var, replace_in_type ty x new_type)
     env
-
-
-let unify env ty1 ty2 =
-  match ty1, ty2 with
-  | TyVar v1, TyVar v2 -> env
-  | TyVar v1, _ -> replace_type_var env v1 ty2
-  | _, TyVar v2 -> replace_type_var env v2 ty1
-  | _ -> env
 
 let rec unify_and_type_equal env ty1 ty2 =
   match ty1, ty2 with
@@ -71,24 +81,6 @@ let rec unify_and_type_equal env ty1 ty2 =
     let env, b2 = unify_and_type_equal env tya2 tyb2 in
     (env, b1 && b2)
   | _ -> (env, false)
-
-let rec string_of_type = function
-  | TyInt   -> "int"
-  | TyBool  -> "bool"
-  | TyVar x -> x
-  | TyArrow(tyl, tyr) -> (string_of_ty_wp tyl) ^ " -> " ^ (string_of_type tyr)
-  | TyTimes(tyl, tyr) -> (string_of_ty_wp tyl) ^ " * " ^ (string_of_type tyr)
-  | TyUnit -> "unit"
-and string_of_ty_wp = function
-  | TyInt | TyBool | TyVar _ | TyUnit as t -> string_of_type t
-  | _ as ty -> "(" ^ (string_of_type ty) ^ ")"
-
-let print_env env =
-  Printf.printf "=== ENV ===\n";
-  List.iter (fun e ->
-      let var, ty = e in
-      Printf.printf "%s : %s\n" var (string_of_type ty)) env;
-  Printf.printf "===========\n"
 
 let print_error fmt (err : typing_error) =
   Format.fprintf fmt "%s" err;
@@ -116,14 +108,13 @@ and typing_cmd env cmd =
   match cmd with
   | Let (var, ty_opt, (loc, expr)) ->
     let env, ty = type_of_expr env expr in
-    (bind env var ty, (loc, Let (var, Some ty, (loc, expr))))
+    (bind env var ty, (loc, Let(var, Some ty, (loc, expr))))
   | LetRec (var, ty_opt, (loc, expr)) ->
     let env, ty = type_of_expr (bind env var (TyVar(next_var_type()))) expr in
     let env = bind env var ty in
     (env, (loc, LetRec (var, Some ty, (loc, expr))))
 
 and type_of_expr env expr =
-  (* print_env env; *)
   match expr with
   | Var var -> (env, value env var)
   | App ((_, expr1), (_, expr2)) as app ->
@@ -146,7 +137,7 @@ and type_of_expr env expr =
         end
       | _ -> raise (Typing_error ("Application " ^ (string_of_type ty1)))
     end
-  | Lam (var,  ty_opt,  (loc, expr)) ->
+  | Lam (var, ty_opt, (loc, expr)) ->
     let env =
       begin
         match ty_opt with
@@ -157,7 +148,7 @@ and type_of_expr env expr =
     let env, tyB = type_of_expr env expr in
     let tyA = value env var in
     (env, TyArrow(tyA, tyB))
-  | Pair ((_, expr1), (_, expr2)) ->
+  | Pair((_, expr1), (_, expr2)) ->
     let env, ty1 = type_of_expr env expr1 in
     let env, ty2 = type_of_expr env expr2 in
     (env, TyTimes(ty1, ty2))
@@ -170,9 +161,14 @@ and type_of_expr env expr =
       match type_of_expr env expr with
       | (_, TyArrow(tya1, tya2)) ->
         let env, equal = unify_and_type_equal env tya1 tya2 in
-        let (env, tya1) = type_of_expr env expr in
-        if equal then (env, tya1)
-        else raise (Typing_error "Fixpoint has type A->B with A != B")
+        let env, ty = type_of_expr env expr in
+        begin
+          match ty with
+          | TyArrow(tya1, _) ->
+            if equal then (env, tya1)
+            else raise (Typing_error "Fixpoint has type A->B with A != B") 
+          | _ -> failwith "Should never happend" 
+        end
       | _ -> raise (Typing_error "Fixpoint type should be of the form A->A")
     end
   | Int i -> env, TyInt
@@ -200,7 +196,7 @@ and type_of_expr env expr =
         else raise (Typing_error "In 'if b then u else v', type(u) sould be equal to type(v)")
       | _, _, _ -> raise (Typing_error ("In 'if b then u else v' type(b) = " ^ (string_of_type ty1)))
     end
-  | Binop (binop, (_, expr1), (_, expr2))  ->
+  | Binop (binop, (_, expr1), (_, expr2)) ->
     type_of_binop env binop expr1 expr2
   | Unit -> env, TyUnit
 
