@@ -18,13 +18,94 @@ let string_of_value value =
   | Bool b -> (string_of_bool b)
   | _ -> ""
 
-
 let print_env env =
   Printf.printf "=== ENV ===\n";
   List.iter (fun e ->
       let var, value = e in
       Printf.printf "%s : %s\n" var (string_of_value value)) env;
   Printf.printf "===========\n"
+
+let var_in env v =
+  try 
+    let _ = List.find (fun (var, _) -> String.compare v var = 0) env in
+    true
+  with Not_found -> false
+
+let letters =
+  [|'a'; 'b'; 'c'; 'd'; 'e'; 'f'; 'g'; 'h'; 'i'; 'j'; 'k'; 'l'; 'm';
+    'n'; 'o'; 'p'; 'q'; 'r'; 's'; 't'; 'u'; 'v'; 'w'; 'x'; 'y'; 'z'|]
+
+let word_pointer = ref []
+
+let fresh_var env =
+  let inc_pointer =
+    match !word_pointer with
+    | [] -> word_pointer := [0];
+    | n :: q -> 
+      if n = 25
+      then
+        let cont = ref true in
+        word_pointer := 0 :: List.map (fun x ->
+            if x = 25
+            then if !cont then 0 else x
+            else begin cont := false; x end) !word_pointer;
+      else word_pointer := (n + 1) :: q
+  in
+  let next_word = 
+    inc_pointer;
+    List.fold_left (fun acc n -> acc ^ (String.make 1 (Array.get letters n))) ("") (!word_pointer)
+  in
+  let cont = ref true in
+  let word = ref "" in
+  while !cont do
+    word := next_word;
+    if var_in env (!word) then ()
+    else cont := false;
+  done;
+  !word
+
+let rec rename_lam env lam =
+  let rec rename_expr_under expr var_to_rep new_var =
+    match expr with
+    | Lam(var, ty, (loc, expr)) ->
+      let lam = Lam(var, ty, (loc, rename_expr_under expr var_to_rep new_var)) in
+      rename_lam env lam
+    | Var var as v ->
+      if String.compare var var_to_rep = 0
+      then Var (new_var) else v
+    | App((loc1, expr1), (loc2, expr2)) ->
+      App((loc1, rename_expr_under expr1 var_to_rep new_var),
+          (loc2, rename_expr_under expr2 var_to_rep new_var))
+    | Pair((loc1, expr1), (loc2, expr2)) ->
+      Pair((loc1,  rename_expr_under expr1 var_to_rep new_var), (loc2,  rename_expr_under expr2 var_to_rep new_var))
+    | LetIn (var, (loc1, expr1), (loc2, expr2)) ->
+      LetIn (var, (loc1, rename_expr_under expr1 var_to_rep new_var), 
+             (loc2, rename_expr_under expr2 var_to_rep new_var))
+    | Fix(loc, expr) -> Fix(loc, rename_expr_under expr var_to_rep new_var)
+    | Int i -> Int i
+    | Bool b -> Bool b
+    | Proj (Left(loc, expr)) -> 
+      Proj(Left(loc, rename_expr_under expr var_to_rep new_var))
+    | Proj (Right(loc, expr)) -> 
+      Proj(Left(loc, rename_expr_under expr var_to_rep new_var))
+    | Ite ((loc1, expr1), (loc2, expr2), (loc3, expr3)) ->
+      Ite ((loc1, rename_expr_under expr1 var_to_rep new_var), 
+           (loc2, rename_expr_under expr2 var_to_rep new_var), 
+           (loc3, rename_expr_under expr3 var_to_rep new_var))
+    | Binop (op, (loc1, expr1), (loc2, expr2)) ->
+      Binop (op, (loc1, rename_expr_under expr1 var_to_rep new_var), 
+             (loc2, rename_expr_under expr2 var_to_rep new_var))
+    | Unit -> Unit
+  in
+  match lam with
+  | Lam(var, ty, (loc, expr)) ->
+    if var_in env var
+    then
+      let fresh = fresh_var env in
+      let expr = rename_expr_under expr var fresh in
+      Lam(fresh, ty, (loc, expr))
+    else Lam(var, ty, (loc, rename_lam env expr))
+  | _ -> lam
 
 let rec eval_ast (cmds : Ast.t) : (Ast.var * Ast.expr) list =
   let cmds = List.map
@@ -41,13 +122,11 @@ let rec eval_ast (cmds : Ast.t) : (Ast.var * Ast.expr) list =
   List.rev env
 
 and eval_cmd env cmd =
-  (* print_env env; *)
   match cmd with
   | Let (var, _, (_, expr)) ->
     (var, eval_expr env expr) :: env
   | LetRec (var, ty, (loc, expr)) ->
     (var, eval_expr env expr) :: env
-(* eval_cmd env (Let(var, ty, (loc, Fix((loc, Lam(var, ty, (loc, expr))))))) *)
 
 and subst env t x u =
   match t with
@@ -76,10 +155,14 @@ and subst env t x u =
     Binop (op, (loc1, subst env expr1 x u), (loc2, subst env expr2 x u))
   | Unit -> Unit
 
-
 and eval_expr env expr =
   match expr with
-  | Var var -> List.assoc var env
+  | Var var -> 
+    begin
+      try
+        List.assoc var env
+      with Not_found -> failwith ("Unbound value " ^ var)
+    end
   | App ((loc1, expr1), (loc2, expr2)) ->
     begin
       match expr1 with
@@ -93,7 +176,7 @@ and eval_expr env expr =
         let expr1' = eval_expr env expr1 in
         eval_expr env (App((loc1, expr1'), (loc2, expr2)))
     end
-  | Lam(var, ty, (loc1, expr1)) as lam -> lam
+  | Lam(var, ty, (loc1, expr1)) as lam -> rename_lam env lam
   | Pair((loc1, expr1), (loc2, expr2)) ->
     Pair((loc1, eval_expr env expr1), (loc2, eval_expr env expr2))
   | LetIn (var, (loc1, expr1), (loc2, expr2)) ->
@@ -114,7 +197,7 @@ and eval_expr env expr =
   | Int i -> Int i
   | Bool b -> Bool b
   | Proj (Left(_, expr)) -> eval_proj env expr true
-  | Proj (Right(_, expr)) -> eval_proj env expr false 
+  | Proj (Right(_, expr)) -> eval_proj env expr false
   | Ite ((loc1, expr1), (loc2, expr2), (loc3, expr3)) ->
     begin
       match expr1 with
