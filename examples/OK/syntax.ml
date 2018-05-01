@@ -1,12 +1,54 @@
 (* Example of well-formed programs *)
 
 let test =
-  let rec f x =
-    if x = 0 then 0 
-    else f (x - 1)
+  let rec funct arg =
+    if arg = 0 then 0
+    else funct (arg - 1)
   in
-  f 5
+  funct 5
+(*
+let test = 
+  let funct = fix(
+      ((fun e -> 
+          let f = fst e in
+          let funct = snd e in 
+          ((fun c -> 
+              let d = fst c in
+              let arg = snd c in
+              let funct = snd d in
+              if arg = 0 then 0 else
+                let b = funct in
+                (fst b) ((b, arg - 1))), funct)),
+       ())) 
+  in
+  let a = funct in
+  (fst a) ((a,5))
+*)
+(*
+let rec test arg =
+  if arg = 0 then 0
+  else test (arg - 1)
 
+let _ = test 5
+*)
+(*
+let test =
+  let f = fix (
+      ((fun e -> 
+          let f = fst e in
+          let f = snd e in
+          ((fun c -> 
+              let d = fst c in
+              let x = snd c in
+              let f = snd d in 
+              let b = f in
+              (fst b) ((b, x - 1))),f)),
+       ()))
+  in 
+  let a = f in 
+  (fst a) ((a,5))
+*)
+(*
 let rec f x =
   if x = 0 then
     1
@@ -43,3 +85,5 @@ let h x y = x
 let test y = h y
 
 let _ = (fun y -> (fun x -> fun y -> x) y) 2 3
+
+*)

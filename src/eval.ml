@@ -41,7 +41,7 @@ let fresh_var env =
   let inc_pointer =
     match !word_pointer with
     | [] -> word_pointer := [0];
-    | n :: q -> 
+    | n :: q ->
       if n = 25
       then
         let cont = ref true in
@@ -157,11 +157,11 @@ and subst env t x u =
 
 and eval_expr env expr =
   match expr with
-  | Var var -> 
+  | Var var ->
     begin
       try
         List.assoc var env
-      with Not_found -> failwith ("Unbound value " ^ var)
+      with Not_found -> failwith ("Evaluation: Unbound value " ^ var)
     end
   | App ((loc1, expr1), (loc2, expr2)) ->
     begin
@@ -189,7 +189,11 @@ and eval_expr env expr =
     begin
       match expr with
       | Lam(var, ty, (loc1, expr1)) as lam ->
+        Printf.printf "EVAL LAM\n";
+        flush stdout;
         eval_expr env (subst env expr1 var (Fix((loc, lam))))
+      | Pair((loc1, expr1), (loc2, expr2)) ->
+        eval_expr env (Pair((loc1, Fix((loc1, expr1))), (loc2, expr2)))
       | _ ->
         let expr' = eval_expr env expr in
         eval_expr env (Fix((loc, expr')))
@@ -237,7 +241,7 @@ and eval_binop env op expr1 expr2 =
   | Gt ->
     match eval_expr env expr1, eval_expr env expr2 with
     | Int i1, Int i2 -> Bool(i1 <= i2)
-    | _ -> failwith "Should not happend"
+    | _ -> failwith "Should never happend BINOP"
 
 
 and value_equal env expr1 expr2 =
@@ -253,15 +257,15 @@ and value_equal env expr1 expr2 =
     (value_equal env expra1' exprb1') && (value_equal env expra2' exprb2')
   | Lam(var1, ty1, (_, exprlam1)), Lam(var2, ty2, (_, exprlam2)) ->
     false
-  | _ -> failwith "Should not happend"
+  | _ -> failwith "Should never happend EQUAL"
 
 and eval_int_op env op expr1 expr2 =
   match eval_expr env expr1, eval_expr env expr2 with
   | Int i1, Int i2 -> Int (op i1 i2)
-  | _ -> failwith "Should never happend"
+  | _ -> failwith "Should never happend INT OP"
 
 and eval_bool_op env op expr1 expr2 =
   match eval_expr env expr1, eval_expr env expr2 with
   | Bool b1, Bool b2 -> Bool (op b1 b2)
-  | _ -> failwith "Should never happend"
+  | _ -> failwith "Should never happend BOOL OP"
 

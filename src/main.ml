@@ -30,6 +30,12 @@ let process_ast ast =
       end
   in
   let ast'' = if !apply_closure then Closure.closure_ast ast' else ast' in
+  let ast'' = if not (!no_typing) then begin
+      match Typing.typing_ast ast'' with
+      | Ok ast -> ast
+      | Error(err) -> fail "%a@." Typing.print_error err
+    end else ast''
+  in
   if not !no_eval then
     List.iter (fun (var,e) ->
         Format.printf "val %a = %a@."
