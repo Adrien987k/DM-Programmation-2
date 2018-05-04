@@ -16,6 +16,8 @@ val get_loc : Lexing.lexbuf -> loc
 (** [loc_of_pos pos] returns a location from [pos]. Useful for the Lexer module *)
 val loc_of_pos : Lexing.position -> loc
 
+val pos_of_loc : loc -> int * int
+
 (** [pp_loc fmt loc] prints a location *)
 val print_loc : loc printer
 

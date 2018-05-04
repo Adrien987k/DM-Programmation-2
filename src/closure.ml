@@ -43,8 +43,8 @@ and closure_cmd cmd =
   current_rec := "";
   match cmd with
   | (locl, Let(var, ty, (loce, expr))) ->
-    current_rec := var; (* MODIFIE *)
-    locl, Let(var, ty, (loce, closure_expr expr))
+    current_rec := var;
+    locl, Let(var, ty, (loce, push_fixs (closure_expr expr)))
   | (locl, LetRec (var, ty, (loce, expr))) ->
     current_rec := var;
     locl, LetRec(var, ty, (loce, closure_expr expr))
@@ -67,10 +67,9 @@ and closure_expr expr =
   | Fix((loc, expr1)) ->
     begin
       match expr1 with
-      | Pair((loc1, expr1'), (loc2, expr2')) ->
-        failwith "OK"
-      (* Pair((loc1, Fix((loc, expr1'))), (loc2, expr2')) *)
-      | _ -> Fix((loc, closure_expr expr1))
+      | Lam(var, ty, (loc', expr')) -> Fix(Utils.dloc, Lam(var, ty, (loc', closure_expr expr')))
+      | _ -> failwith "Fixpoint on somthing not a lam"
+      (* Fix((loc, closure_expr expr1)) *)
     end
   | Int i -> expr
   | Bool b -> expr
@@ -82,6 +81,32 @@ and closure_expr expr =
     Ite((loc1, closure_expr expr1), (loc2, closure_expr expr2), (loc3, closure_expr expr3))
   | Binop(op, (loc1, expr1), (loc2, expr2)) ->
     Binop(op, (loc1, closure_expr expr1), (loc2, closure_expr expr2))
+  | Unit -> Unit
+
+and push_fixs expr =
+  match expr with
+  | Fix((loc, expr1)) ->
+    begin
+      match expr1 with
+      | Pair((loc1, expr1'), (loc2, expr2')) ->
+        Pair((loc1, (push_fixs (Fix((loc, expr1'))))), (loc2, expr2'))
+      | _ ->
+        expr
+    end
+  | Var var -> expr
+  | App((loc1, expr1), (loc2, expr2)) -> App((loc1, push_fixs expr1), (loc2, push_fixs expr2)) 
+  | Lam(var, ty_opt, (loc1, expr1)) -> Lam(var, ty_opt, (loc1, push_fixs expr1))
+  | Pair((loc1, expr1), (loc2, expr2)) -> Pair((loc1, push_fixs expr1), (loc2, push_fixs expr2))
+  | LetIn(var, (loc1, expr1), (loc2, expr2)) ->
+    LetIn(var, (loc1, push_fixs expr1), (loc2, push_fixs expr2))
+  | Int i -> expr
+  | Bool b -> expr
+  | Proj(Left((loc1, expr1))) -> Proj(Left((loc1, push_fixs expr1)))
+  | Proj(Right((loc1, expr1))) -> Proj(Right((loc1, push_fixs expr1)))
+  | Ite((loc1, expr1), (loc2, expr2), (loc3, expr3)) ->
+    Ite((loc1, push_fixs expr1), (loc2, push_fixs expr2), (loc3, push_fixs expr3))
+  | Binop(op, (loc1, expr1), (loc2, expr2)) ->
+    Binop(op, (loc1, push_fixs expr1), (loc2, push_fixs expr2))
   | Unit -> Unit
 
 and closure_lam lam =
@@ -125,6 +150,7 @@ and closure_lam lam =
           String.compare v var <> 0
         ) (free_vars lam) 
     in
+    let vars = List.sort_uniq (fun v1 v2 -> 0) vars in
     begin
       match vars with
       | [] ->

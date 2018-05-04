@@ -189,8 +189,6 @@ and eval_expr env expr =
     begin
       match expr with
       | Lam(var, ty, (loc1, expr1)) as lam ->
-        Printf.printf "EVAL LAM\n";
-        flush stdout;
         eval_expr env (subst env expr1 var (Fix((loc, lam))))
       | Pair((loc1, expr1), (loc2, expr2)) ->
         eval_expr env (Pair((loc1, Fix((loc1, expr1))), (loc2, expr2)))
@@ -240,7 +238,7 @@ and eval_binop env op expr1 expr2 =
     Bool (value_equal env expr1' expr2')
   | Gt ->
     match eval_expr env expr1, eval_expr env expr2 with
-    | Int i1, Int i2 -> Bool(i1 <= i2)
+    | Int i1, Int i2 -> Bool(i1 > i2)
     | _ -> failwith "Should never happend BINOP"
 
 

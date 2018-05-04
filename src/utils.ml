@@ -14,6 +14,7 @@ let get_loc lexbuf = let open Lexing in loc_of_pos lexbuf.lex_start_p
 
 let print_loc fmt (l,c) = Format.fprintf fmt "(%d,%d)" l c
 
+let pos_of_loc loc : (int * int) = loc
 
 let dlevel = ref (-1)
 

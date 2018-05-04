@@ -3,7 +3,7 @@ open Utils
 
 type ('a, 'b) env = ('a * 'b) list
 
-type typing_error = string
+type typing_error = string * loc
 
 exception Typing_error of typing_error
 
@@ -40,10 +40,10 @@ let bind env k v =
   else
     (k, v) :: env
 
-let value env k =
+let value env k loc =
   try
     List.assoc k env
-  with Not_found -> raise (Typing_error ("Unbound value " ^ k))
+  with Not_found -> raise (Typing_error ("Unbound value " ^ k, loc))
 
 let rec string_of_type = function
   | TyInt   -> "int"
@@ -119,7 +119,9 @@ let rec unify_and_type_equal env ty1 ty2 =
   | _ -> (env, None)
 
 let print_error fmt (err : typing_error) =
-  Format.fprintf fmt "%s" err;
+  let str, loc = err in
+  let x, y = pos_of_loc loc in
+  Format.fprintf fmt "Line:%s, Caractere:%s, %s" (string_of_int x) (string_of_int y) str;
   ()
 
 let rec typing_ast (ast : Ast.t) : (Ast.t, typing_error) Utils.result =
@@ -143,19 +145,19 @@ let rec typing_ast (ast : Ast.t) : (Ast.t, typing_error) Utils.result =
 and typing_cmd env cmd =
   match cmd with
   | Let (var, ty_opt, (loc, expr)) ->
-    let env, ty = type_of_expr env expr in
+    let env, ty = type_of_expr env (loc, expr) in
     (bind env var ty, (loc, Let(var, Some ty, (loc, expr))))
   | LetRec (var, ty_opt, (loc, expr)) ->
-    let env, ty = type_of_expr (bind env var (TyVar(next_var_type()))) expr in
+    let env, ty = type_of_expr (bind env var (TyVar(next_var_type()))) (loc, expr) in
     let env = bind env var ty in
     (env, (loc, LetRec (var, Some ty, (loc, expr))))
 
-and type_of_expr env expr =
-  match expr with
-  | Var var -> (env, value env var)
-  | App ((_, expr1), (_, expr2)) ->
-    let env, ty1 = type_of_expr env expr1 in
-    let env, ty2 = type_of_expr env expr2 in
+and type_of_expr env expr_l =
+  match expr_l with
+  | (loc, Var var) -> (env, value env var loc)
+  | (loc, App (expr1_l, expr2_l)) ->
+    let env, ty1 = type_of_expr env expr1_l in
+    let env, ty2 = type_of_expr env expr2_l in
     begin
       match ty1 with
       | TyArrow(tya1, tya2) ->
@@ -164,7 +166,8 @@ and type_of_expr env expr =
           | env, Some ty -> (env, tya2)
           | env, None ->
             raise (Typing_error
-                     ("Application " ^ (string_of_type tya1) ^ " != " ^ (string_of_type ty2)))
+                     (("Typing: Application " ^ (string_of_type tya1) ^ " != " ^ (string_of_type ty2)), 
+                      loc))
         end
       | TyVar v ->
         let tya1 = TyVar (next_var_type()) in
@@ -175,11 +178,13 @@ and type_of_expr env expr =
           | env, Some ty -> env, tya2
           | _ -> 
             raise (Typing_error
-                     ("Application " ^ (string_of_type tya1) ^ " != " ^ (string_of_type ty2)))  
+                     (("Typing: Application incompatible types : " ^ (string_of_type tya1) ^ " != " ^ (string_of_type ty2), 
+                       loc)))  
         end
-      | _ -> raise (Typing_error ("Application " ^ (string_of_type ty1)))
+      | _ -> raise (Typing_error 
+                      (("Typing: Application of something not a lambda : " ^ (string_of_type ty1)), loc))
     end
-  | Lam (var, ty_opt, (loc, expr)) ->
+  | (loc, Lam (var, ty_opt, expr_l')) ->
     let env =
       begin
         match ty_opt with
@@ -187,69 +192,61 @@ and type_of_expr env expr =
         | None -> bind env var (TyVar (next_var_type()))
       end
     in
-    let env, tyB = type_of_expr env expr in
-    let tyA = value env var in
+    let env, tyB = type_of_expr env expr_l' in
+    let tyA = value env var loc in
     (env, TyArrow(tyA, tyB))
-  | Pair((_, expr1), (_, expr2)) ->
-    let env, ty1 = type_of_expr env expr1 in
-    let env, ty2 = type_of_expr env expr2 in
+  | (loc, Pair(expr1_l, expr2_l)) ->
+    let env, ty1 = type_of_expr env expr1_l in
+    let env, ty2 = type_of_expr env expr2_l in
     (env, TyTimes(ty1, ty2))
-  | LetIn (var, (_, expr1), (_, expr2)) ->
-    let env, ty1 = type_of_expr env expr1 in
-    let env, ty2 = type_of_expr (bind env var ty1) expr2 in
+  | (loc, LetIn (var, expr1_l, expr2_l)) ->
+    let env, ty1 = type_of_expr env expr1_l in
+    let env, ty2 = type_of_expr (bind env var ty1) expr2_l in
     (env, ty2)
-  | Fix (_, expr) ->
+  | (loc, Fix (expr_l)) ->
     begin
-      let env, ty = type_of_expr env expr in
+      let env, ty = type_of_expr env expr_l in
       match ty with
       | TyArrow(tya1, tya2) ->
-        begin 
+        begin
           match unify_and_type_equal env tya1 tya2 with
           | env, Some ty -> env, ty
-          | _ -> raise (Typing_error "Fixpoint has type A->B with A != B")
+          | _ -> raise (Typing_error ("Typing: Fixpoint has type A->B with A != B", loc))
         end
-      | TyVar v ->
-        raise (Typing_error "VAR")
-      | TyTimes(tyt1, tyt2) ->
-        begin 
-          match expr with
-          | Pair((loc, expr1), (_, expr2)) ->
-            type_of_expr env (Fix (loc, expr1))
-          | _ -> failwith "Should never happed Typing FIX PAIR"
-        end
-      | t -> raise (Typing_error ("Fixpoint type should be of the form A->A | " ^ (string_of_type (t))))
+      | t -> raise (Typing_error ("Typing: Fixpoint type should be of the form A->A | " ^ (string_of_type (t)), loc)) 
     end
-  | Int i -> env, TyInt
-  | Bool b -> env, TyBool
-  | Proj(Left ((_, expr))) as p -> type_of_proj env expr p true
-  | Proj(Right ((_, expr))) as p -> type_of_proj env expr p false
-  | Ite ((_, expr1), (_, expr2), (_, expr3)) ->
-    let (env, ty1) = type_of_expr env expr1 in
-    let (env, ty2) = type_of_expr env expr2 in
-    let (env, ty3) = type_of_expr env expr3 in
+  | (loc, Int i) -> env, TyInt
+  | (loc, Bool b) -> env, TyBool
+  | (loc, Proj(Left (expr_l))) -> type_of_proj env expr_l true
+  | (loc, Proj(Right (expr_l))) -> type_of_proj env expr_l false
+  | (loc, Ite (expr1_l, expr2_l, expr3_l)) ->
+    let (env, ty1) = type_of_expr env expr1_l in
+    let (env, ty2) = type_of_expr env expr2_l in
+    let (env, ty3) = type_of_expr env expr3_l in
     begin
       match ty1, ty2, ty3 with
       | TyBool, _, _ ->
         begin 
           match unify_and_type_equal env ty2 ty3 with
           | env, Some ty -> env, ty
-          | _ -> raise (Typing_error "In 'if b then u else v', type(u) sould be equal to type(v)")
+          | _ -> raise (Typing_error ("Typing: In 'if b then u else v', type(u) sould be equal to type(v)", loc))
         end
       | TyVar v, _, _ ->
         let env = replace_type_var env v TyBool in
         begin
           match unify_and_type_equal env ty2 ty3 with
           | env, Some ty -> env, ty
-          | _ -> raise (Typing_error "In 'if b then u else v', type(u) sould be equal to type(v)")
+          | _ -> raise (Typing_error ("Typing: In 'if b then u else v', type(u) sould be equal to type(v)", loc))
         end
-      | _, _, _ -> raise (Typing_error ("In 'if b then u else v' type(b) = " ^ (string_of_type ty1)))
+      | _, _, _ -> raise (Typing_error ("Typing: In 'if b then u else v' type(b) = " ^ (string_of_type ty1), loc))
     end
-  | Binop (binop, (_, expr1), (_, expr2)) ->
-    type_of_binop env binop expr1 expr2
-  | Unit -> env, TyUnit
+  | (loc, Binop (binop, expr1_l, expr2_l)) ->
+    type_of_binop env binop expr1_l expr2_l
+  | (loc, Unit) -> env, TyUnit
 
-and type_of_proj env expr p is_left =
+and type_of_proj env expr is_left =
   let env, ty = type_of_expr env expr in
+  let loc, _ = expr in
   match ty with
   | TyTimes(ty1, ty2) ->
     if is_left then (env, ty1) else (env, ty2)
@@ -258,7 +255,8 @@ and type_of_proj env expr p is_left =
     let ty2 = TyVar (next_var_type()) in
     let env = replace_type_var env v (TyTimes(ty1, ty2)) in
     if is_left then (env, ty1) else (env, ty2)
-  | _ -> raise (Typing_error ("Projection (" ^ (if is_left then "fst" else "snd") ^ ") on something not a couple"))
+  | _ -> raise (Typing_error
+                  ("Projection (" ^ (if is_left then "fst" else "snd") ^ ") on something not a couple", loc))
 
 and type_of_binop env binop expr1 expr2 =
   let op =
@@ -272,6 +270,7 @@ and type_of_binop env binop expr1 expr2 =
     | Eq -> '='
     | Gt -> '>'
   in
+  let loc, _ = expr1 in
   let env, ty1 = type_of_expr env expr1 in
   let env, ty2 = type_of_expr env expr2 in
   match unify_and_type_equal env ty1 ty2 with
@@ -283,13 +282,13 @@ and type_of_binop env binop expr1 expr2 =
         | TyInt ->
           if List.mem op ['+'; '-'; '*'; '/'] then (env, TyInt)
           else if List.mem op  ['>'] then (env, TyBool)
-          else raise (Typing_error "Int operation should be between two int")
+          else raise (Typing_error ("Int operation should be between two int", loc))
         | TyBool ->
           if List.mem op ['&'; '|']
           then (env, TyInt)
-          else raise (Typing_error "Operation between two bool should be && or ||")
-        | _ -> raise (Typing_error "Operation on something not a bool or int")
+          else raise (Typing_error ("Operation between two bool should be && or ||", loc))
+        | _ -> raise (Typing_error ("Operation on something not a bool or int", loc))
       end
-  | _ -> 
+  | _ ->
     raise (Typing_error ("Operation " ^ (String.make 1 op) ^ " between type " ^
-                         (string_of_type ty1) ^ " and " ^ (string_of_type ty2)))
+                         (string_of_type ty1) ^ " and " ^ (string_of_type ty2), loc))
