@@ -64,7 +64,7 @@ let rec print_expr fmt expr =
   | LetIn(var,(_,Fix(_,Lam(var',mty,e))),e') when var = var'
     -> Format.fprintf fmt "let rec %a = %a in %a" print_param (var',mty)
          print_lc_expr e print_lc_expr e'
-  | Fix (_, e)                     -> Format.fprintf fmt "fix(%a)" print_expr e (* assert false *)
+  | Fix (_, e)                     -> assert false
   | LetIn(var,e,e')           -> Format.fprintf fmt "let %a = %a in %a" print_var var
                                    print_lc_expr e print_lc_expr e'
   | Proj(p)                   -> Format.fprintf fmt "%a" (print_either print_lc_expr) p

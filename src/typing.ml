@@ -30,7 +30,6 @@ let fresh_var () : string =
   inc_pointer;
   List.fold_left (fun acc n -> acc ^ (String.make 1 (Array.get letters n))) ("") (!word_pointer)
 
-(* TODO z -> aa *)
 let next_var_type () = "'" ^ (fresh_var ())
 
 let bind env k v =
@@ -56,28 +55,6 @@ and string_of_ty_wp = function
   | TyInt | TyBool | TyVar _ | TyUnit as t -> string_of_type t
   | _ as ty -> "(" ^ (string_of_type ty) ^ ")"
 
-let string_of_expr = function
-  | Var   _ -> "var"
-  | App   (_, _) -> "app"
-  | Lam   (_,_,_) -> "lam"
-  | Pair  (_,_) -> "pair"
-  | LetIn (_) -> "letIn"
-  | Fix   _ -> "fix"
-  | Int   _ -> "int"
-  | Bool  _ -> "bool"
-  | Proj  _ -> "proj"
-  | Ite  _ -> "ite"
-  | Binop _ -> "binop"
-  | Unit -> "unit"
-
-
-let print_env env =
-  Printf.printf "=== ENV ===\n";
-  List.iter (fun e ->
-      let var, ty = e in
-      Printf.printf "%s : %s\n" var (string_of_type ty)) env;
-  Printf.printf "===========\n"
-
 let rec replace_type_var env x new_type =
   let rec replace_in_type ty x new_type =
     match ty with
@@ -90,7 +67,6 @@ let rec replace_type_var env x new_type =
       let var, ty = entry in var, replace_in_type ty x new_type)
     env
 
-(* TODO factoriser *)
 let rec unify_and_type_equal env ty1 ty2 =
   match ty1, ty2 with
   | TyVar v1, TyVar v2 -> replace_type_var env v2 (TyVar v1), Some(TyVar v1)
@@ -98,22 +74,15 @@ let rec unify_and_type_equal env ty1 ty2 =
   | _, TyVar v2 -> replace_type_var env v2 ty1, Some(ty1)
   | TyInt, TyInt -> env, Some TyInt
   | TyBool, TyBool -> env, Some TyBool
-  | TyArrow(tya1, tya2), TyArrow(tyb1, tyb2) ->
-    let n_env, t1_opt = unify_and_type_equal env tya1 tyb1 in
-    let n_env, t2_opt = unify_and_type_equal n_env tya2 tyb2 in
-    begin
-      match t1_opt, t2_opt with
-      | Some t1, Some t2 ->
-        n_env, Some (TyArrow(t1, t2))
-      | _ -> env, None
-    end
+  | TyArrow(tya1, tya2), TyArrow(tyb1, tyb2)
   | TyTimes(tya1, tya2), TyTimes(tyb1, tyb2) ->
+    let is_arrow = match ty1 with TyArrow (_, _) -> true | _ -> false in
     let n_env, t1_opt = unify_and_type_equal env tya1 tyb1 in
     let n_env, t2_opt = unify_and_type_equal n_env tya2 tyb2 in
     begin
       match t1_opt, t2_opt with
       | Some t1, Some t2 ->
-        n_env, Some (TyTimes(t1, t2))
+        n_env, Some (if is_arrow then TyArrow(t1, t2) else TyTimes(t1, t2))
       | _ -> env, None
     end
   | _ -> (env, None)
@@ -121,7 +90,7 @@ let rec unify_and_type_equal env ty1 ty2 =
 let print_error fmt (err : typing_error) =
   let str, loc = err in
   let x, y = pos_of_loc loc in
-  Format.fprintf fmt "Line:%s, Caractere:%s, %s" (string_of_int x) (string_of_int y) str;
+  Format.fprintf fmt "Line:%s, Charactere:%s, %s" (string_of_int x) (string_of_int y) str;
   ()
 
 let rec typing_ast (ast : Ast.t) : (Ast.t, typing_error) Utils.result =
@@ -256,7 +225,7 @@ and type_of_proj env expr is_left =
     let env = replace_type_var env v (TyTimes(ty1, ty2)) in
     if is_left then (env, ty1) else (env, ty2)
   | _ -> raise (Typing_error
-                  ("Projection (" ^ (if is_left then "fst" else "snd") ^ ") on something not a couple", loc))
+                  ("Typing: Projection (" ^ (if is_left then "fst" else "snd") ^ ") on something not a couple", loc))
 
 and type_of_binop env binop expr1 expr2 =
   let op =
@@ -282,13 +251,13 @@ and type_of_binop env binop expr1 expr2 =
         | TyInt ->
           if List.mem op ['+'; '-'; '*'; '/'] then (env, TyInt)
           else if List.mem op  ['>'] then (env, TyBool)
-          else raise (Typing_error ("Int operation should be between two int", loc))
+          else raise (Typing_error ("Typing: Int operation should be between two int", loc))
         | TyBool ->
           if List.mem op ['&'; '|']
           then (env, TyInt)
-          else raise (Typing_error ("Operation between two bool should be && or ||", loc))
-        | _ -> raise (Typing_error ("Operation on something not a bool or int", loc))
+          else raise (Typing_error ("Typing: Operation between two bool should be && or ||", loc))
+        | _ -> raise (Typing_error ("Typing: Operation on something not a bool or int", loc))
       end
   | _ ->
-    raise (Typing_error ("Operation " ^ (String.make 1 op) ^ " between type " ^
+    raise (Typing_error ("Typing: Operation " ^ (String.make 1 op) ^ " between type " ^
                          (string_of_type ty1) ^ " and " ^ (string_of_type ty2), loc))

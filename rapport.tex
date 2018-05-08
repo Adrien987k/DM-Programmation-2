@@ -1,190 +1,242 @@
-	\documentclass{article}
+\documentclass[12pt]{article}
 
-	\usepackage[utf8x]{inputenc} 	% accents
-	\usepackage[T1]{fontenc}      % caractères français
-	\usepackage{geometry}         % marges
-	\usepackage[french]{babel}  	% langue
-	\usepackage{graphicx}         % images
-	\usepackage{verbatim}         		% texte préformaté
-	\usepackage{bussproofs}       		% proofs
-	\usepackage[cache=false]{minted}         % source code
-
-	\title{DM de programmation 2}
-	\author{Adrien Bardes}
-	\date{30 mars 2018}
-
-	\begin{document}
-
-	\maketitle
-
-	\section{La spécification de Mini-Ml}
-
-	\paragraph{Question 1.}
-
-	\begin{prooftree}
-	\def\fCenter{ \vdash\ }
-	\Axiom$\Gamma \fCenter n : int$
-	\UnaryInf$\Gamma \fCenter succ n : int$
-	\end{prooftree}
-
-	\begin{prooftree}
-	\def\fCenter{ \vdash\ }
-	\Axiom$\Gamma \fCenter n : int$
-	\UnaryInf$\Gamma \fCenter pred n : int$
-	\end{prooftree}
+\usepackage[utf8x]{inputenc} 	% accents
+\usepackage[T1]{fontenc}      % caractères français
+\usepackage{geometry}         % marges
+\usepackage[french]{babel}  	% langue
+\usepackage{graphicx}         % images
+\usepackage{verbatim}         		% texte préformaté
+\usepackage{bussproofs}       		% proofs
+\usepackage[cache=false]{minted}         % source code
 
 
-	\paragraph{Question 2.}
+\geometry{hmargin=2.5cm,vmargin=1.5cm}
 
-	\begin{minted}{ocaml}
-
-	let plus_body = fun n -> fun m -> 
-		let n = fst c in
-		let m = snd c in
-		if n = 0 then n2 else
-		if m = 0 then n1 else
-		plus (pred n, succ m)
-
-	let rec plus = plus_body in plus
+\newenvironment{bprooftree}
+  {\leavevmode\hbox\bgroup}
+  {\DisplayProof\egroup}
 
 
-	let time_body = fun n -> fun m ->
-		if n = 0 then 0 else
-		if m = 0 then 0 else
-		time (plus(n, m), pred m)
+\title{DM de programmation 2}
+\author{Adrien Bardes}
+\date{30 mars 2018}
 
-	let rec time = time_body in time
+\begin{document}
 
-	\end{minted}
+\maketitle
 
-	\paragraph{Question 3.}
+\section{La spécification de Mini-Ml}
 
-	\begin{minted}{ocaml}
+\paragraph{Question 1.}
 
-	let rec f = fun x ->
-		if x = 0 then 1 else
-		time (x, f (x - 1))
+\[
+\begin{bprooftree}
+\AxiomC{$\Gamma \vdash\ n : int$}
+\UnaryInfC{$\Gamma \vdash\ \textbf{succ} \ n : int$}
+\end{bprooftree} \qquad
+\begin{bprooftree}
+\AxiomC{$t \hookrightarrow t^{\prime}$}
+\UnaryInfC{$\textbf{succ} \ t \hookrightarrow \textbf{succ} \ t^{\prime}$}
+\end{bprooftree} \qquad
+\begin{bprooftree}
+\AxiomC{$n \ \textbf{value}$}
+\UnaryInfC{$\textbf{succ} \ n \hookrightarrow (n + 1) \ \textbf{value}$}
+\end{bprooftree}
+\]
 
-	\end{minted}
+\[
+\begin{bprooftree}
+\AxiomC{$\Gamma \vdash\ n : int$}
+\UnaryInfC{$\Gamma \vdash\ \textbf{pred} \ n : int$}
+\end{bprooftree} \qquad
+\begin{bprooftree}
+\AxiomC{$t \hookrightarrow t^{\prime}$}
+\UnaryInfC{$\textbf{pred} \ t \hookrightarrow \textbf{pred} \ t^{\prime}$}
+\end{bprooftree}
+\]
 
-	%TODO arbre de dérivation
+\[
+\begin{bprooftree}
+\AxiomC{$n \ \textbf{value}$}
+\AxiomC{$n = (0 \ \textbf{value})$}
+\BinaryInfC{$\textbf{pred} \ n \hookrightarrow 0 \ \textbf{value}$}
+\end{bprooftree} \qquad
+\begin{bprooftree}
+\AxiomC{$n \ \textbf{value}$}
+\UnaryInfC{$\textbf{pred} \ n \hookrightarrow (n - 1) \ \textbf{value}$}
+\end{bprooftree}
+\]
 
-	\paragraph{Question 4.}
+\paragraph{Question 2.}
 
-	\begin{minted}{ocaml}
+\begin{minted}{ocaml}
+let rec plus = fun n -> fun m ->
+	if n = 0 then m else
+	if m = 0 then n else
+	plus (pred n) (succ m)
+in plus
 
-	let x = fst ((fun n -> fun m -> (n, m)) 2 3) in x
+let rec time = fun n -> fun m ->
+	if n = 0 then 0 else
+	if m = 0 then 0 else
+	if n = 1 then m else
+	if m = 1 then n else
+	time (plus n m) (pred m)
+in time
+\end{minted}
 
-	\end{minted}
+\paragraph{Question 3.}
 
-	\paragraph{Question 5.}
+\begin{minted}{ocaml}
+let rec f = fun x ->
+	if x = 0 then 1 else
+	time x (f (x - 1))
+	in f
+\end{minted}
 
-	Le typage des expression assure l'absence de plantage du à un mauvais typage
-	lors de l'exécution d'un programme
+%TODO arbre de dérivation
 
-	\paragraph{Question 6.}
+\paragraph{Question 4.}
 
-	En Ocaml, toutes les expressions sont des valeurs. Par exemple dans le code suivant, f est une valeur :
-	\begin{minted}{ocaml}
-	let rec f x = if x = 0 then 0 else f (x -1)
-	\end{minted}
+\begin{minted}{ocaml}
+let x = fst (2,3) in
+let y = snd (2,3) in
+x
+\end{minted}
 
-	\paragraph{Question 7.}
+\paragraph{Question 5.}
 
-	Sans les opérateurs de comparaison $\le$ et $\ge$ il n'est pas possible d'implémenter $pred$ en Mini-Ml.
-
-	\paragraph{Question 8.}
-
-
-
-	\paragraph{Question 9.}
-
-	L'opérateur $\not\equiv$ effectue un test sur les types des deux élements comparés. On a $a \not\equiv b$ si et seulement si $a$ et $b$ sont de type différents ou $a$ et $b$ sont du même type mais pas la même valeur.
+Le typage des expressions assure que le programme s'évaluera en une valeur, en suivant les règles de la sémantique. Un mauvais typage donne lieu à des expressions sur lesquelles aucune règle de la sémantique ne s'applique. Par example si dans l'expression : $u \ v$, $u$
+n'est du type $\lambda x^{A}.t \ \textbf{value}$, l'expression n'a aucun sens, ce n'est pas une valeur et aucune règle de la sémantique ne s'applique.
 
 
-	\section{Implémentation de Mini-ML}
+\paragraph{Question 7.}
 
-	\paragraph{Question 10.}
+Sans les opérateurs de comparaison $\le$ et $\ge$ il n'est pas possible d'implémenter $pred$ en Mini-Ml. En effet, on ne dispose d'aucune relation d'ordre sur les $n \ \textbf{value}$.
 
-	%Let of var * ty option * expr loc
-	%let x^A = u
-	%let rec x^A = u
-	%LetRec of var * ty option * expr loc
 
-	\def\fCenter{ \mbox{ $\vdash$\ }}
+\paragraph{Question 8.}
 
-	\begin{figure}[!t]
-	\centering
-	\caption{La commande Let}
-	\label{Tux}
-	\end{figure}
+Dans le code suivant, dans g\_body et f\_body, on peut faire appel à l'expression f ou g.
 
-	\begin{prooftree}
-	\AxiomC{$\Gamma \vdash t : A$}
-	\UnaryInfC{$\Gamma \fCenter \textbf{let}\ x^A = t$}
-	\end{prooftree}
+\begin{minted}{ocaml}
+let rec f = fun x ->
+	let rec g = fun y ->
+		g_body
+	in
+	f_body
+in
+f
+\end{minted}
 
-	\begin{prooftree}
-	\AxiomC{$\Gamma \vdash \textbf{let}\ x = \textbf{fix}\ (\lambda x^A .t)$}
-	\UnaryInfC{$\Gamma \vdash \textbf{let\ rec}\ x^A = t$}
-	\end{prooftree}
 
-	\begin{prooftree}
-	\AxiomC{$t \hookrightarrow t'$}
-	\UnaryInfC{$\textbf{let}\ x = t\ \hookrightarrow \textbf{let}\ x = t'$}
-	\end{prooftree}
+\paragraph{Question 9.}
 
-	\begin{prooftree}
-	\AxiomC{$$}
-	\UnaryInfC{$\textbf{let\ rec}\ x^A = t \hookrightarrow \textbf{fix}\ (\lambda x^A .t)$}
-	\end{prooftree}
+L'opérateur $\not\equiv$ effectue un test sur les types des deux élements comparés. On a $a \not\equiv b$ si et seulement si $a$ et $b$ sont de type différents ou $a$ et $b$ sont du même type mais pas la même valeur. Il est possible de faire sans, en interdisant les comparaisons entre deux valeurs de type différents. Ainsi un simple $\neq$ suffit.
 
-	\paragraph{Question 11.}
 
-	Un programme Mini-ML est une suite de commandes.
+\section{Implémentation de Mini-ML}
 
-	\paragraph{Question 12.}
 
-	$\Gamma, let x = t$ ==> $\Gamma, let x = t in x$
-	$\Gamma, let rec x = t$ ==> $let rec x = t in x$
+\paragraph{Question 11.}
 
-	\paragraph{Question 13.}
+Il est possible de se passer des commandes. En effet, on peut remplacer
+\begin{minted}{ocaml}
+let rec f = ... par let rec f = ... in f 
+et
+let f = ... par let f = ... in f
+\end{minted}
 
-	\begin{prooftree}
-	\AxiomC{$\Gamma, x : \textbf{bool}$}
-	\AxiomC{$\Gamma, y : \textbf{bool}$}
-	\BinaryInfC{$\Gamma, x\ \&\& \ y : \textbf{bool}$}
-	\end{prooftree}
 
-	\begin{prooftree}
-	\AxiomC{$x \hookrightarrow \textbf{true}$}
-	\AxiomC{$y \hookrightarrow \textbf{true}$}
-	\BinaryInfC{$x\ \&\& \ y \hookrightarrow \textbf{true}$}
-	\end{prooftree}
+\paragraph{Question 12.}
 
-	\begin{prooftree}
-	\AxiomC{$x \hookrightarrow \textbf{false}$}
-	\UnaryInfC{$x\ \&\& \ y \hookrightarrow \textbf{false}$}
-	\end{prooftree}
+On utilise la transformation de la question 11.
 
-	\begin{prooftree}
-	\AxiomC{$y \hookrightarrow \textbf{false}$}
-	\UnaryInfC{$x\ \&\& \ y \hookrightarrow \textbf{false}$}
-	\end{prooftree}
 
-	\begin{prooftree}
-	\AxiomC{$\Gamma, x : \textbf{nat}$}
-	\AxiomC{$\Gamma, y : \textbf{nat}$}
-	\BinaryInfC{$\Gamma, x + y : \textbf{nat}$}
-	\end{prooftree}
+\paragraph{Question 13.}
 
-	\begin{prooftree}
-	\AxiomC{$\textbf{plus}\ x \ y$}
-	\UnaryInfC{$x + y$}
-	\end{prooftree}
+\[
+\begin{bprooftree}
+\AxiomC{$\Gamma, x : \textbf{bool}$}
+\AxiomC{$\Gamma, y : \textbf{bool}$}
+\BinaryInfC{$\Gamma, x\ \&\& \ y : \textbf{bool}$}
+\end{bprooftree} \qquad
+\begin{bprooftree}
+\AxiomC{$x \hookrightarrow \textbf{true}$}
+\AxiomC{$y \hookrightarrow \textbf{true}$}
+\BinaryInfC{$x\ \&\& \ y \hookrightarrow \textbf{true}$}
+\end{bprooftree} \qquad
+\begin{bprooftree}
+\AxiomC{$x \hookrightarrow \textbf{false}$}
+\UnaryInfC{$x\ \&\& \ y \hookrightarrow \textbf{false}$}
+\end{bprooftree}
+\]
 
-	\paragraph{Question 14.}
+\[
+\begin{bprooftree}
+\AxiomC{$y \hookrightarrow \textbf{false}$}
+\UnaryInfC{$x\ \&\& \ y \hookrightarrow \textbf{false}$}
+\end{bprooftree} \qquad
+\begin{bprooftree}
+\AxiomC{$\Gamma, x : \textbf{nat}$}
+\AxiomC{$\Gamma, y : \textbf{nat}$}
+\BinaryInfC{$\Gamma, x + y : \textbf{nat}$}
+\end{bprooftree} \qquad
+\begin{bprooftree}
+\AxiomC{$\textbf{plus}\ x \ y$}
+\UnaryInfC{$x + y$}
+\end{bprooftree}
+\]
 
-	Le let rec in est directement traduit en un fixpoint...
+\[
+\begin{bprooftree}
+\AxiomC{$t \hookrightarrow t^{\prime}$}
+\AxiomC{$u \hookrightarrow u^{\prime}$}
+\BinaryInfC{$t \ \&\& \ u \hookrightarrow t^{\prime} \ \&\& \ u^{\prime}$}
+\end{bprooftree} \qquad
+\begin{bprooftree}
+\AxiomC{$t \hookrightarrow t^{\prime}$}
+\AxiomC{$u \hookrightarrow u^{\prime}$}
+\BinaryInfC{$t + u \hookrightarrow t^{\prime} + u^{\prime}$}
+\end{bprooftree}
+\]
 
-	\end{document}
+\paragraph{Question 14.}
+
+L'expression 
+\begin{minted}{ocaml}
+let rec f in ...
+\end{minted} 
+est directement traduite dans l'AST par l'expresison 
+\begin{minted}{ocaml}
+fix(let f in ...)
+\end{minted}
+$\textbf{fix}$ est un opérateur de point fixe.
+
+
+\paragraph{Question 15.}
+
+Avant typage, le type d'une abstraction est None. Cependant on laisse la possibilité d'écrire
+\begin{minted}{ocaml}
+let f = fun (x:t) -> ...
+\end{minted}
+Auquel cas l'abstraction est déjà typée et a le type $Some(t)$.
+Après typage, si celui-ci réussi, toutes les abstractions ont un type de la forme $Some(t)$.
+
+Lors du typage, on procède à l'unification de termes. Si une lambda a pour type $Some(t)$ et que le typeur détermine que $t = int \rightarrow int$, ont aurait envie de modifier dans toutes les occurences de la lambda, $Some(t)$ par $Some(int \rightarrow int)$. Cela se fait très simplement en utilisant une référence.
+
+
+\paragraph{Question 20.}
+
+En C, toute fonction est close. Un programme Mini-ML comporte des fonctions non closes. La \textit{closure conversion}, qui transforme ces fonctions non closes en fonction close est donc nécessaire.
+
+La \textit{defunctionalization} permet de supprimer les fonctions d'ordre supérieur. En C ces fonctions difficilement manipulables, cela est donc très utile.
+
+
+
+\paragraph{Question 27.}
+
+Si le typage échoue, le numéro de la ligne et du caractère où se trouve l'erreur sont affichés.
+
+
+\end{document}

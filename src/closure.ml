@@ -5,6 +5,7 @@ let letters =
     'n'; 'o'; 'p'; 'q'; 'r'; 's'; 't'; 'u'; 'v'; 'w'; 'x'; 'y'; 'z'|]
 
 let word_pointer = ref []
+let counter = ref 0
 
 let fresh_var () : string =
   let inc_pointer =
@@ -21,7 +22,9 @@ let fresh_var () : string =
       else word_pointer := (n + 1) :: q
   in
   inc_pointer;
-  List.fold_left (fun acc n -> acc ^ (String.make 1 (Array.get letters n))) ("") (!word_pointer)
+  counter := !counter + 1;
+  (List.fold_left (fun acc n -> acc ^ (String.make 1 (Array.get letters n))) ("") (!word_pointer))
+  ^ "_" ^ (string_of_int !counter)
 
 let rec make_field n var =
   if n = 0 then
@@ -30,7 +33,6 @@ let rec make_field n var =
     Proj(Right(Utils.dloc, Var var))
   else
     Proj(Right(Utils.dloc, make_field (n - 1) var))
-
 
 let current_rec = ref ""
 
@@ -44,7 +46,7 @@ and closure_cmd cmd =
   match cmd with
   | (locl, Let(var, ty, (loce, expr))) ->
     current_rec := var;
-    locl, Let(var, ty, (loce, push_fixs (closure_expr expr)))
+    locl, Let(var, ty, (loce, closure_expr expr))
   | (locl, LetRec (var, ty, (loce, expr))) ->
     current_rec := var;
     locl, LetRec(var, ty, (loce, closure_expr expr))
@@ -63,14 +65,18 @@ and closure_expr expr =
   | Pair((loc1, expr1), (loc2, expr2)) ->
     Pair((loc1, closure_expr expr1), (loc2, closure_expr expr2))
   | LetIn(var, (loc1, expr1), (loc2, expr2)) ->
-    LetIn(var, (loc1, closure_expr expr1), (loc2, closure_expr expr2))
-  | Fix((loc, expr1)) ->
-    begin
-      match expr1 with
-      | Lam(var, ty, (loc', expr')) -> Fix(Utils.dloc, Lam(var, ty, (loc', closure_expr expr')))
-      | _ -> failwith "Fixpoint on somthing not a lam"
-      (* Fix((loc, closure_expr expr1)) *)
+    begin 
+      match expr1 with 
+      | Fix(loc, expr1') ->
+        begin
+          match expr1' with
+          | Lam(var, ty_opt, (l, expr1'')) ->
+            LetIn(var, (loc1, Fix(loc, Lam(var, ty_opt, (l, expr1'')))), (loc2, expr2))
+          | _ -> failwith "Should never happend LetIn"
+        end
+      | _ -> LetIn(var, (loc1, closure_expr expr1), (loc2, closure_expr expr2))
     end
+  | Fix((loc, expr1)) -> Fix((loc, expr1))
   | Int i -> expr
   | Bool b -> expr
   | Proj(Left((loc1, expr1))) ->
